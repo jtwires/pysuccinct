@@ -38,7 +38,7 @@ class BalancedParentheses(collections.Sequence):
 
     def _balanced(self):
         """return True iff parentheses are balanced"""
-        ok = len(self) % 2 == 0
+        ok = len(self) and len(self) % 2 == 0
         ok = ok and self[0] == '(' and self[-1] == ')'
         ok = ok and all(self.excess(i) >= 0 for i in range(len(self)))
         ok = ok and self.excess(len(self) - 1) == 0
