@@ -217,6 +217,9 @@ class Navigator(collections.Sequence):
     def __len__(self):
         return len(self.enc) / 2
 
+    def __nonzero__(self):
+        return len(self) > 0
+
     def __getitem__(self, n):
         """return the position of the nth node"""
         if isinstance(n, slice):

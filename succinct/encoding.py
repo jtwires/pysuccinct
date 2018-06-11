@@ -69,6 +69,9 @@ class BalancedParentheses(collections.Sequence):
     def __len__(self):
         return len(self.bv)
 
+    def __nonzero__(self):
+        return len(self) > 0
+
     def __getitem__(self, i):
         return toparens(self.bv[i])
 

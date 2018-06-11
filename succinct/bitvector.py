@@ -12,6 +12,9 @@ class BitVector(collections.Sequence):
     """
     # pylint: disable=W0232
 
+    def __nonzero__(self):
+        return len(self) > 0
+
     def rank(self, p, i):
         """return the number of substrings p starting at or before i"""
         raise NotImplementedError()
