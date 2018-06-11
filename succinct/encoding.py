@@ -1,3 +1,4 @@
+import numbers
 import collections
 
 from succinct import bitvector
@@ -130,3 +131,31 @@ class BalancedParentheses(collections.Sequence):
     def selectmin(self, i, j, k):
         """return the position of the kth minimum excess"""
         raise NotImplementedError()
+
+class EliasFano(collections.Sequence):
+
+    def __init__(self, data):  # pylint: disable=W0231
+        if isinstance(data, bitvector.BitVector):
+            data = [idx for idx, val in enumerate(data) if val == '1']
+        assert all(isinstance(val, numbers.Integral) for val in data)
+        self.data = data
+
+    def __nonzero__(self):
+        return len(self) > 0
+
+    def __len__(self):
+        return len(self.data)
+
+    def __str__(self):
+        return str(list(self))
+
+    def __getitem__(self, idx):
+        if isinstance(idx, slice):
+            return [self[i] for i in range(*idx.indices(len(self)))]
+        if not isinstance(idx, numbers.Integral):
+            raise TypeError('indices must be integers')
+        if idx < 0:
+            idx += len(self)
+        if idx < 0 or idx >= len(self):
+            raise IndexError('index out of range')
+        return self.data[idx]
