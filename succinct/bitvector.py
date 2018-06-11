@@ -15,6 +15,15 @@ class BitVector(collections.Sequence):
     def __nonzero__(self):
         return len(self) > 0
 
+    def append(self, bit):
+        """append bit to vector"""
+        raise NotImplementedError()
+
+    def extend(self, bits):
+        """append bits to vector"""
+        for bit in bits:
+            self.append(bit)
+
     def rank(self, p, i):
         """return the number of substrings p starting at or before i"""
         raise NotImplementedError()

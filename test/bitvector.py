@@ -30,6 +30,10 @@ class BitVector(bitvector.BitVector):
     def __getitem__(self, i):
         return self.bits[i]
 
+    def append(self, bit):
+        assert bit in '01'
+        self.bits += bit
+
     def rank(self, p, i):
         self._checkindex(i)
         self._checkpattern(p)
