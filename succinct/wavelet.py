@@ -21,6 +21,7 @@ Mathematics 21.4 (1971): 514-532.
 
 """
 
+import heapq
 import collections
 
 class Codec(object):
@@ -42,6 +43,146 @@ class ASCIICodec(Codec):
 
     def decode(self, code):
         return chr(code)
+
+class HuffmanCodec(Codec):
+    """huffman code"""
+
+    def __init__(self, text):
+        self.syms = {}
+        self.codes = {}
+
+        if not text:
+            return
+
+        class Node(object):
+
+            def __init__(self):
+                self.cnt = 0
+                self.sym = None
+                self.left = None
+                self.right = None
+
+            def __lt__(self, other):
+                return self.cnt < other.cnt
+
+        heap, nodes = [], collections.defaultdict(Node)
+        for sym in text:
+            node = nodes[sym]
+            node.cnt += 1
+            if node.cnt == 1:
+                node.sym = sym
+                heap.append(node)
+                nodes[sym] = node
+
+        heapq.heapify(heap)
+        while len(heap) > 1:
+            node = Node()
+            node.left, node.right = heapq.heappop(heap), heapq.heappop(heap)
+            node.cnt = node.left.cnt + node.right.cnt
+            heapq.heappush(heap, node)
+
+        stack = [(heap[0], '')]
+        while stack:
+            node, code = stack.pop()
+            if node.sym:
+                self.syms[code] = node.sym
+                self.codes[node.sym] = code
+            else:
+                stack.append((node.right, code + '1'))
+                stack.append((node.left, code + '0'))
+
+    def encode(self, sym):
+        return self.codes[sym]
+
+    def decode(self, code):
+        return self.syms[code]
+
+class HuTuckerCodec(Codec):
+
+    def __init__(self, text):
+        self.syms = {}
+        self.codes = {}
+
+        if not text:
+            return
+
+        class Node(object):
+
+            def __init__(self, cnt=0):
+                self.cnt = cnt
+                self.sym = None
+                self.left = None
+                self.right = None
+
+            def __str__(self):
+                return '{}: {}'.format(self.sym, self.cnt)
+
+        nodes, leaves = [], collections.defaultdict(Node)
+        for sym in text:
+            leaf = leaves[sym]
+            leaf.cnt += 1
+            if leaf.cnt == 1:
+                leaf.sym = sym
+                leaves[sym] = leaf
+
+        # merge nodes
+        alphabet = sorted(leaves)
+        nodes = [leaves[sym] for sym in alphabet]
+        while len(nodes) > 1:
+            tgt = len(nodes) - 1
+            for idx, node in enumerate(nodes):
+                if idx <= 0 or idx >= len(nodes) - 1:
+                    continue
+                if nodes[idx - 1].cnt <= nodes[idx + 1].cnt:
+                    tgt = idx
+                    break
+            left, right = nodes[tgt - 1], nodes[tgt]
+            node = Node(cnt=left.cnt + right.cnt)
+            node.left, node.right = left, right
+            for ins in xrange(1, tgt):
+                if nodes[ins - 1].cnt >= node.cnt:
+                    nodes.insert(ins, node)
+                    break
+            else:
+                nodes.insert(0, node)
+            nodes.remove(left)
+            nodes.remove(right)
+
+        # calculate depths
+        stack, depths = [(nodes[0], 0)], {}
+        while stack:
+            node, depth = stack.pop()
+            if node.sym:
+                depths[node.sym] = depth
+            else:
+                stack.append((node.right, depth + 1))
+                stack.append((node.left, depth + 1))
+
+        # build new tree
+        print depths
+        paths = [(Node(), 0)]
+        for sym in alphabet:
+            node, depth = None, depths[sym]
+            while not node:
+                n, d = paths[-1]
+                if d == depth and not n.left and not n.right:
+                    node = n
+                    paths.pop()
+                elif not n.left:
+                    n.left = Node()
+                    paths.append((n.left, d + 1))
+                elif not n.right:
+                    n.right = Node()
+                    paths.append((n.right, d + 1))
+                else:
+                    paths.pop()
+            node.sym = sym
+
+    def encode(self, sym):
+        return self.codes[sym]
+
+    def decode(self, code):
+        return self.syms[code]
 
 class WaveletTree(collections.Sequence):
     # pylint: disable=W0232

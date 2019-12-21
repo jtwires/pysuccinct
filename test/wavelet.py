@@ -1,4 +1,5 @@
 import unittest
+import collections
 
 from succinct import wavelet
 
@@ -100,6 +101,55 @@ class WaveletTree(wavelet.WaveletTree):
             cnt = idx + 1
 
         return idx
+
+class CodecTestCases(object):
+
+    class CodecTests(unittest.TestCase):
+
+        def construct(self, text):
+            raise NotImplementedError()
+
+        def test_empty(self):
+            self.construct('')
+
+        def test_codec(self):
+            text = 'this is the winter of our discontent'
+            codec = self.construct(text)
+
+            self.assertEqual(
+                text,
+                ''.join(codec.decode(codec.encode(sym)) for sym in text)
+            )
+
+class ASCIICodecTests(CodecTestCases.CodecTests):
+
+    def construct(self, text):
+        return wavelet.ASCIICodec()
+
+class HuffmanCodecTests(CodecTestCases.CodecTests):
+
+    def construct(self, text):
+        return wavelet.HuffmanCodec(text)
+
+    def test_compression(self):
+        text = 'this is the winter of our discontent'
+        codec = self.construct(text)
+
+        frequencies = collections.defaultdict(int)
+        for sym in text:
+            frequencies[sym] += 1
+
+        table = sorted(frequencies.items(), key=lambda item: item[1])
+        for idx, (sym, cnt) in enumerate(table):
+            code = codec.encode(sym)
+            for nxt in table[idx:]:
+                if cnt > nxt[1]:
+                    self.assertLessEqual(len(code), len(codec.encode(nxt[0])))
+
+class HuTuckerCodecTests(unittest.TestCase):
+
+    def test_ht(self):
+        codec = wavelet.HuTuckerCodec('AAABBCDDDDEEEEE')
 
 class WaveletTreeTestCases(object):
 
