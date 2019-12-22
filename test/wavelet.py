@@ -61,13 +61,18 @@ class WaveletTree(wavelet.WaveletTree):
             idx = node.bv.rank(bit, idx) - 1
             node = node.children[bit]
 
-        return self.codec.decode(int(''.join(code), 2))
+        return self.codec.decode(''.join(code))
 
     def rank(self, c, i):
         if i < 0 or i >= len(self.root.bv):
             raise IndexError('index out of range')
 
-        idx, code, node = i, iter(self.codec.encode(c)), self.root
+        try:
+            code = self.codec.encode(c)
+        except ValueError:
+            return 0
+
+        idx, code, node = i, iter(code), self.root
 
         while node.bv:
             bit = next(code)
@@ -83,12 +88,14 @@ class WaveletTree(wavelet.WaveletTree):
         if k <= 0 or k > len(self.root.bv):
             raise ValueError('count out of range')
 
-        cnt, code, node = k, self.codec.encode(c), self.root
-
-        for bit in code:
-            node = node.children[bit]
-            if not node:
-                raise ValueError("'{}' does not occur in text".format(c))
+        try:
+            cnt, code, node = k, self.codec.encode(c), self.root
+            for bit in code:
+                node = node.children[bit]
+                if not node:
+                    raise ValueError()
+        except ValueError:
+            raise ValueError("'{}' does not occur in text".format(c))
 
         for bit in reversed(code):
             node = node.parent
@@ -139,17 +146,35 @@ class HuffmanCodecTests(CodecTestCases.CodecTests):
         for sym in text:
             frequencies[sym] += 1
 
-        table = sorted(frequencies.items(), key=lambda item: item[1])
+        table = sorted(
+            frequencies.items(),
+            key=lambda item: item[1],
+            reverse=True
+        )
         for idx, (sym, cnt) in enumerate(table):
             code = codec.encode(sym)
             for nxt in table[idx:]:
                 if cnt > nxt[1]:
-                    self.assertLessEqual(len(code), len(codec.encode(nxt[0])))
+                    self.assertLessEqual(
+                        len(code),
+                        len(codec.encode(nxt[0]))
+                    )
 
-class HuTuckerCodecTests(unittest.TestCase):
+class HuTuckerCodecTests(CodecTestCases.CodecTests):
 
-    def test_ht(self):
-        codec = wavelet.HuTuckerCodec('AAABBCDDDDEEEEE')
+    def construct(self, text):
+        return wavelet.HuTuckerCodec(text)
+
+    def test_ordering(self):
+        text = 'this is the winter of our discontent'
+        codec = self.construct(text)
+
+        codes = [codec.encode(sym) for sym in text]
+
+        self.assertEqual(
+            ''.join(sorted(text)),
+            ''.join(codec.decode(code) for code in sorted(codes))
+        )
 
 class WaveletTreeTestCases(object):
 
@@ -210,7 +235,12 @@ class WaveletTreeTestCases(object):
             with self.assertRaises(ValueError):
                 self.assertEqual(tree.select('x', 1), None)
 
-class TestWaveletTreeTests(WaveletTreeTestCases.WaveletTreeTests):
+class TestAsciiWaveletTreeTests(WaveletTreeTestCases.WaveletTreeTests):
 
     def construct(self, text):
         return WaveletTree(text)
+
+class TestHuTuckerWaveletTreeTests(WaveletTreeTestCases.WaveletTreeTests):
+
+    def construct(self, text):
+        return WaveletTree(text, codec=wavelet.HuTuckerCodec(text))

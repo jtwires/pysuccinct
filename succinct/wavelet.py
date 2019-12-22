@@ -42,7 +42,7 @@ class ASCIICodec(Codec):
         return bin(ord(sym))[2:].zfill(7)
 
     def decode(self, code):
-        return chr(code)
+        return chr(int(code, 2))
 
 class HuffmanCodec(Codec):
     """huffman code"""
@@ -92,12 +92,17 @@ class HuffmanCodec(Codec):
                 stack.append((node.left, code + '0'))
 
     def encode(self, sym):
+        if sym not in self.codes:
+            raise ValueError('invalid symbol {}'.format(sym))
         return self.codes[sym]
 
     def decode(self, code):
+        if code not in self.syms:
+            raise ValueError('invalid code {}'.format(code))
         return self.syms[code]
 
 class HuTuckerCodec(Codec):
+    """hu tucker code - a huffman code that preserves alphabet sort order"""
 
     def __init__(self, text):
         self.syms = {}
@@ -117,15 +122,16 @@ class HuTuckerCodec(Codec):
             def __str__(self):
                 return '{}: {}'.format(self.sym, self.cnt)
 
-        nodes, leaves = [], collections.defaultdict(Node)
+        # calculate frequencies
+        leaves = collections.defaultdict(Node)
         for sym in text:
             leaf = leaves[sym]
             leaf.cnt += 1
             if leaf.cnt == 1:
                 leaf.sym = sym
-                leaves[sym] = leaf
 
-        # merge nodes
+        # build intermediary tree by merging nodes
+        # according to the garsia-wachs algorithm
         alphabet = sorted(leaves)
         nodes = [leaves[sym] for sym in alphabet]
         while len(nodes) > 1:
@@ -139,7 +145,7 @@ class HuTuckerCodec(Codec):
             left, right = nodes[tgt - 1], nodes[tgt]
             node = Node(cnt=left.cnt + right.cnt)
             node.left, node.right = left, right
-            for ins in xrange(1, tgt):
+            for ins in reversed(xrange(1, tgt)):
                 if nodes[ins - 1].cnt >= node.cnt:
                     nodes.insert(ins, node)
                     break
@@ -148,7 +154,7 @@ class HuTuckerCodec(Codec):
             nodes.remove(left)
             nodes.remove(right)
 
-        # calculate depths
+        # calculate depths of leaf nodes
         stack, depths = [(nodes[0], 0)], {}
         while stack:
             node, depth = stack.pop()
@@ -158,30 +164,40 @@ class HuTuckerCodec(Codec):
                 stack.append((node.right, depth + 1))
                 stack.append((node.left, depth + 1))
 
-        # build new tree
-        print depths
-        paths = [(Node(), 0)]
+        # build new tree with leaf nodes at same depth
+        # but in alphabetic order
+        root = Node()
+        paths = [(root, 0)]
         for sym in alphabet:
-            node, depth = None, depths[sym]
-            while not node:
-                n, d = paths[-1]
-                if d == depth and not n.left and not n.right:
-                    node = n
-                    paths.pop()
-                elif not n.left:
-                    n.left = Node()
-                    paths.append((n.left, d + 1))
-                elif not n.right:
-                    n.right = Node()
-                    paths.append((n.right, d + 1))
-                else:
-                    paths.pop()
-            node.sym = sym
+            while True:
+                node, depth = paths.pop()
+                if depths[sym] == depth:
+                    node.sym = sym
+                    break
+                if depths[sym] > depth:
+                    node.left, node.right = Node(), Node()
+                    paths.append((node.right, depth + 1))
+                    paths.append((node.left, depth + 1))
+
+        # generate codes
+        stack = [(root, '')]
+        while stack:
+            node, code = stack.pop()
+            if node.sym:
+                self.syms[code] = node.sym
+                self.codes[node.sym] = code
+            else:
+                stack.append((node.right, code + '1'))
+                stack.append((node.left, code + '0'))
 
     def encode(self, sym):
+        if sym not in self.codes:
+            raise ValueError('invalid symbol {}'.format(sym))
         return self.codes[sym]
 
     def decode(self, code):
+        if code not in self.syms:
+            raise ValueError('invalid code {}'.format(code))
         return self.syms[code]
 
 class WaveletTree(collections.Sequence):
