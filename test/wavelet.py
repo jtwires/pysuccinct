@@ -240,6 +240,11 @@ class TestAsciiWaveletTreeTests(WaveletTreeTestCases.WaveletTreeTests):
     def construct(self, text):
         return WaveletTree(text)
 
+class TestHuffmanWaveletTreeTests(WaveletTreeTestCases.WaveletTreeTests):
+
+    def construct(self, text):
+        return WaveletTree(text, codec=wavelet.HuffmanCodec(text))
+
 class TestHuTuckerWaveletTreeTests(WaveletTreeTestCases.WaveletTreeTests):
 
     def construct(self, text):
