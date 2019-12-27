@@ -18,5 +18,8 @@ class Index(collections.Sequence):
     def __getitem__(self, index):
         raise NotImplementedError()
 
-    def indexes(self, string):
+    def __contains__(self, value):
+        return self.count(value) > 0
+
+    def indexes(self, value):
         raise NotImplementedError()
