@@ -62,6 +62,60 @@ class SA(index.Index):
         suffixes = ((text[i:], i) for i in range(len(text)))
         return cls(text, tuple(i for _, i in sorted(suffixes)))
 
+class CSA(index.Index):
+    """naive compressed suffix array implementation"""
+
+    def __init__(self, offsets, predecessors):
+        super(CSA, self).__init__()
+        self.offsets = offsets
+        self.predecessors = predecessors
+
+    def __len__(self):
+        return len(self.predecessors)
+
+    def __getitem__(self, idx):
+        raise NotImplementedError()
+
+    def index(self, value):
+        raise NotImplementedError()
+
+    def indexes(self, value):
+        raise NotImplementedError()
+
+    def count(self, value):
+        # `backward search` to count suffixes containing @string
+        if not value:
+            # match behavior for string.count
+            return len(self.predecessors) + 1
+        s, e, soff, eoff = 1, 0, 0, 0
+        for idx in reversed(range(len(value))):
+            c, p = value[idx], '' if not idx else value[idx - 1]
+            try:
+                s, e = self.offsets[c]
+            except KeyError:
+                return 0
+            s += soff
+            e -= eoff
+            soff = sum(1 for x in self.predecessors[:s] if x == p)
+            eoff = sum(1 for x in self.predecessors[e:] if x == p)
+        return e - s
+
+    @classmethod
+    def build(cls, text):
+        suffixes = ((text[i:], i) for i in range(len(text)))
+
+        offsets, predecessors, n, p = {}, [], len(text), None
+        for idx, (sfx, off) in enumerate(sorted(suffixes)):
+            predecessors.append('' if not off else text[off - 1])
+            c = '' if not sfx else sfx[0]
+            if c != p:
+                prv = offsets.get(p)
+                if prv:
+                    offsets[p] = prv[0], idx
+                p, offsets[c] = c, (idx, n)
+
+        return cls(offsets, predecessors)
+
 class IndexTestCases(object):
 
     class IndexTests(unittest.TestCase):
@@ -100,35 +154,59 @@ class IndexTestCases(object):
         def construct(self, text):
             raise NotImplementedError()
 
-        def validate(self, text):
-            words, indexes = text.split(), collections.defaultdict(list)
-            for word in words:
-                if word in indexes:
+        def index(self, text):
+            lookup = collections.defaultdict(list)
+            for word in text.split():
+                if word in lookup:
                     continue
                 for i in range(len(text)):
                     if word == text[i:i + len(word)]:
-                        indexes[word].append(i)
+                        lookup[word].append(i)
+            return lookup
+
+        def validate(self, text):
+            lookup = self.index(text)
 
             idx = self.construct(text)
             self.assertEqual(len(idx), len(text))
 
-            for word in words + ['christmas']:
+            for word in list(lookup) + ['christmas']:
                 self.assertEqual(
                     idx.count(word),
-                    len(indexes[word]),
+                    len(lookup[word]),
                 )
                 try:
                     self.assertEqual(
                         idx.index(word),
-                        indexes[word][0],
+                        lookup[word][0],
                     )
                 except ValueError:
                     self.assertFalse(word in idx)
                     self.assertFalse(word in text)
                 self.assertEqual(
                     list(sorted(idx.indexes(word))),
-                    indexes[word],
+                    lookup[word],
                 )
+
+        def test_index_empty(self):
+            idx = self.construct('')
+            self.assertIn('', idx)
+            self.assertNotIn('foo', idx)
+
+        def test_match_empty(self):
+            self.assertIn('', self.construct('foo'))
+
+        def test_match_all(self):
+            self.assertIn('foo', self.construct('foo'))
+
+        def test_match_first(self):
+            self.assertIn('foo', self.construct('foo bar'))
+
+        def test_match_last(self):
+            self.assertIn('foo', self.construct('bar foo'))
+
+        def test_match_boundaries(self):
+            self.assertEqual(self.construct('foo bar foo').count('foo'), 2)
 
         def test_small(self):
             self.validate(self.SMALL)
@@ -140,3 +218,21 @@ class SATests(IndexTestCases.IndexTests):
 
     def construct(self, text):
         return SA.build(text)
+
+class CSATests(IndexTestCases.IndexTests):
+
+    def construct(self, text):
+        return CSA.build(text)
+
+    def validate(self, text):
+        lookup = self.index(text)
+
+        idx = self.construct(text)
+        self.assertEqual(len(idx), len(text))
+
+        for word in list(lookup) + ['christmas']:
+            self.assertEqual(
+                idx.count(word),
+                len(lookup[word]),
+                word
+            )
