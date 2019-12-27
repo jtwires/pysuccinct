@@ -18,31 +18,32 @@ class SA(index.Index):
     def __getitem__(self, idx):
         return self.text[idx]
 
-    def __contains__(self, string):
-        return self.count(string) > 0
-
-    def count(self, string):
-        start, end = self._search(string)
+    def count(self, value):
+        start, end = self._search(value)
         return end - start + 1
 
-    def index(self, string):
+    def index(self, value):
         try:
-            return next(iter(sorted(self.indexes(string))))
+            return next(iter(sorted(self.indexes(value))))
         except StopIteration:
             raise ValueError()
 
-    def indexes(self, string):
-        start, end = self._search(string)
+    def indexes(self, value):
+        start, end = self._search(value)
         for idx in range(start, end + 1):
             yield self.array[idx]
 
-    def _search(self, string):
-        m = len(string)
+    def _search(self, value):
+        # binary search for first and last suffix containing @string
+        if not value:
+            # match behavior for string.count
+            return 0, len(self) + 1
+        m = len(value)
         sp, st = 0, len(self) - 1
         while sp < st:
             idx = (sp + st) // 2
             off = self.array[idx]
-            if string > self.text[off:off + m]:
+            if value > self.text[off:off + m]:
                 sp = idx + 1
             else:
                 st = idx
@@ -50,7 +51,7 @@ class SA(index.Index):
         while ep < et:
             idx = (ep + et) // 2 + ((ep + et) & 1)
             off = self.array[idx]
-            if string == self.text[off:off + m]:
+            if value == self.text[off:off + m]:
                 ep = idx
             else:
                 et = idx - 1
